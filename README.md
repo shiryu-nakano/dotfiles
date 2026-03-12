@@ -20,6 +20,7 @@
   gh (GitHub CLI)
 
   # 公式リポジトリを追加
+  ```
   (type -p wget >/dev/null || sudo apt install wget) \
     && sudo mkdir -p -m 755 /etc/apt/keyrings \
     && out=$(mktemp) && wget -nv -O$out
@@ -36,9 +37,9 @@
 
   # 認証
   gh auth login
-
+  ```
   ghq
-
+  ```
   # Go が必要
   sudo apt install golang-go
 
@@ -48,9 +49,9 @@
   # パスを通す（.zshrc に追記）
   echo 'export PATH="$HOME/go/bin:$PATH"' >> ~/.zshrc
   source ~/.zshrc
-
+  ```
   fzf
-
+  ```
   sudo apt install fzf
 
   bat（コードプレビュー用）
@@ -60,7 +61,7 @@
   # Ubuntu では batcat という名前になるので、エイリアスを作成
   mkdir -p ~/.local/bin
   ln -s /usr/bin/batcat ~/.local/bin/bat
-
+  ```
   ---
   3. dotfiles を展開
 
