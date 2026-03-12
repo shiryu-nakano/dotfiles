@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# nb-link: Select an nb note with fzf and output a markdown link
+#
+# Usage:
+#   nb-link                    # Interactive selection, outputs markdown link
+#   nb-link --path             # Outputs relative path instead of link
+#   nb-link --output <file>    # Write result to file instead of stdout
+
+NB_HOME="${NB_HOME:-$HOME/CABiNET/nb/home}"
+OUTPUT_PATH=0
+OUTPUT_FILE=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --path)
+      OUTPUT_PATH=1
+      shift
+      ;;
+    --output)
+      OUTPUT_FILE="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+# Get all markdown files with titles
+get_notes() {
+  find "$NB_HOME" -name "*.md" -type f | while read -r file; do
+    # Get relative path from NB_HOME
+    rel_path="${file#$NB_HOME/}"
+    # Extract title from frontmatter or first heading
+    title=$(grep -m1 -E '^title:|^# ' "$file" 2>/dev/null | sed 's/^title: *"\?\([^"]*\)"\?$/\1/; s/^# //' | head -1)
+    if [[ -z "$title" ]]; then
+      title="$(basename "$file" .md)"
+    fi
+    printf "%s\t%s\n" "$rel_path" "$title"
+  done
+}
+
+# Select with fzf
+PREVIEW_CMD="$HOME/.local/bin/nb-link-preview {1}"
+selected=$(get_notes | fzf --delimiter='\t' \
+  --with-nth=2 \
+  +i \
+  --preview="$PREVIEW_CMD" \
+  --preview-window=right:50%:wrap \
+  --prompt="nb note> " 2>/dev/null)
+
+if [[ -z "$selected" ]]; then
+  exit 0
+fi
+
+# Parse selection
+rel_path=$(echo "$selected" | cut -f1)
+title=$(echo "$selected" | cut -f2)
+
+if [[ "$OUTPUT_PATH" -eq 1 ]]; then
+  result="$rel_path"
+else
+  # Output markdown link
+  result="[$title]($rel_path)"
+fi
+
+# Output to file or stdout
+if [[ -n "$OUTPUT_FILE" ]]; then
+  echo "$result" > "$OUTPUT_FILE"
+else
+  echo "$result"
+fi

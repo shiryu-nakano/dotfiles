@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Preview helper for nb-link
+NB_HOME="${NB_HOME:-$HOME/CABiNET/nb/home}"
+file="$NB_HOME/$1"
+if [[ -f "$file" ]]; then
+  head -40 "$file"
+else
+  echo "File not found: $file"
+fi

@@ -1,0 +1,347 @@
+#!/usr/bin/env bash
+###############################################################################
+# daily.nb-plugin
+#
+# Create daily log notes with section copying from previous day.
+# Inspired by org-roam daily workflow.
+#
+# Install with:
+#   nb plugins install ~/.nb/.plugins/daily.nb-plugin
+#
+# Usage:
+#   nb daily          - Create/open today's daily note
+#   nb daily yesterday - Open yesterday's daily note
+#   nb daily YYYY-MM-DD - Open specific date's daily note
+###############################################################################
+
+_subcommands add "daily"
+
+_subcommands describe "daily" <<HEREDOC
+Usage:
+  nb daily [<date>] [--no-edit]
+
+Options:
+  --no-edit  Create the file without opening in editor.
+
+Arguments:
+  <date>     Optional date in YYYY-MM-DD format, or "yesterday".
+             Defaults to today.
+
+Description:
+  Create or open a daily log note. When creating a new note, copies
+  specific sections from the previous day's note:
+
+  Copied sections:
+    - Home
+    - 直近の予定締め切り
+    - TASK
+    - タスク整理
+    - Agile
+    - inbox
+
+  New sections (created fresh each day):
+    - LOG
+    - 所感
+
+  File structure:
+    daily/YYYY/MM/YYYY-MM-DD.md
+
+Examples:
+  nb daily              Create/open today's note
+  nb daily yesterday    Open yesterday's note
+  nb daily 2026-03-01   Open note for March 1, 2026
+HEREDOC
+
+# Find the most recent previous daily note
+# Usage: _daily_find_previous_note <notebook_path> <target_date> [<max_days>]
+# Returns: path to the most recent previous note, or empty string if none found
+_daily_find_previous_note() {
+  local _notebook_path="${1}"
+  local _target_date="${2}"
+  local _max_days="${3:-30}"
+  local _check_date=""
+  local _check_file=""
+
+  for (( i=1; i<=_max_days; i++ )); do
+    # Calculate date i days before target
+    if command -v gdate &>/dev/null; then
+      _check_date="$(gdate -d "${_target_date} - ${i} day" +%Y-%m-%d)"
+    elif date -v-1d &>/dev/null 2>&1; then
+      # macOS date
+      _check_date="$(date -j -f "%Y-%m-%d" "${_target_date}" -v-${i}d +%Y-%m-%d 2>/dev/null)"
+    else
+      # GNU date
+      _check_date="$(date -d "${_target_date} - ${i} day" +%Y-%m-%d)"
+    fi
+
+    local _check_year="${_check_date:0:4}"
+    local _check_month="${_check_date:5:2}"
+    _check_file="${_notebook_path}/daily/${_check_year}/${_check_month}/${_check_date}.md"
+
+    if [[ -f "${_check_file}" ]]; then
+      printf "%s" "${_check_file}"
+      return 0
+    fi
+  done
+
+  # No previous note found
+  return 0
+}
+
+# Extract a section from markdown file (including subsections)
+# Usage: _daily_extract_section <file> <section_name>
+_daily_extract_section() {
+  local _file="${1}"
+  local _section="${2}"
+
+  if [[ ! -f "${_file}" ]]; then
+    return 0
+  fi
+
+  awk -v section="${_section}" '
+    BEGIN { found=0; level=0 }
+    /^#+ / {
+      match($0, /^#+/)
+      current_level = RLENGTH
+      current_title = $0
+      gsub(/^#+ /, "", current_title)
+
+      if (found && current_level <= level) {
+        exit
+      }
+
+      if (current_title == section && !found) {
+        found = 1
+        level = current_level
+        print
+        next
+      }
+    }
+    found { print }
+  ' "${_file}"
+}
+
+# Generate default section content
+_daily_default_section() {
+  local _section="${1}"
+
+  case "${_section}" in
+    "Home")
+      printf "# Home\n\n"
+      ;;
+    "直近の予定締め切り")
+      printf "# 直近の予定締め切り\n\n"
+      ;;
+    "TASK")
+      printf "# TASK\n\n"
+      ;;
+    "LOG")
+      printf "# LOG\n\n"
+      ;;
+    "タスク整理")
+      printf "# タスク整理\n\n"
+      ;;
+    "Agile")
+      cat <<'EOF'
+# Agile
+
+小さなプロジェクトor習慣化
+プロジェクトごとにメモをため、大きくなったらprojectにするか、もしくはnoteにまとめておく
+
+## MISC
+
+## Engineer働き方
+
+## 研究
+
+## Math Study
+
+## 音楽
+
+## Reading
+
+EOF
+      ;;
+    "所感")
+      printf "# 所感\n\n"
+      ;;
+    "inbox")
+      printf "# inbox\n\n"
+      ;;
+  esac
+}
+
+_daily() {
+  local _date_arg="${1:-}"
+  local _no_edit=0
+  local _target_date=""
+  local _notebook_path=""
+
+  # Parse arguments
+  while [[ $# -gt 0 ]]; do
+    case "${1}" in
+      --no-edit)
+        _no_edit=1
+        shift
+        ;;
+      yesterday)
+        _target_date="$(date -v-1d +%Y-%m-%d 2>/dev/null || date -d 'yesterday' +%Y-%m-%d)"
+        shift
+        ;;
+      [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9])
+        _target_date="${1}"
+        shift
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+
+  # Default to today
+  if [[ -z "${_target_date}" ]]; then
+    _target_date="$(date +%Y-%m-%d)"
+  fi
+
+  # Extract year and month
+  local _year="${_target_date:0:4}"
+  local _month="${_target_date:5:2}"
+
+  # Get notebook path
+  _notebook_path="$(_notebooks current --path)"
+
+  # Build file path
+  local _daily_dir="${_notebook_path}/daily/${_year}/${_month}"
+  local _daily_file="${_daily_dir}/${_target_date}.md"
+
+  # Find the most recent previous daily note for section copying
+  local _previous_file=""
+  _previous_file="$(_daily_find_previous_note "${_notebook_path}" "${_target_date}" 30)"
+
+  # Create directory if needed
+  mkdir -p "${_daily_dir}"
+
+  # If file doesn't exist, create it
+  if [[ ! -f "${_daily_file}" ]]; then
+    printf "Creating daily note for %s...\\n" "${_target_date}"
+    if [[ -n "${_previous_file}" ]]; then
+      printf "  Copying sections from: %s\\n" "$(basename "${_previous_file}")"
+    else
+      printf "  No previous daily note found, using defaults.\\n"
+    fi
+
+    # Header
+    cat > "${_daily_file}" <<EOF
+---
+title: "${_target_date}"
+tags: [daily]
+created: $(date +%Y-%m-%dT%H:%M:%S)
+---
+
+EOF
+
+    # Sections to copy from yesterday
+    local _copy_sections=("Home" "直近の予定締め切り" "TASK" "タスク整理" "Agile" "inbox")
+    # Sections to create fresh
+    local _new_sections=("LOG" "所感")
+
+    # Process copy sections
+    for _section in "${_copy_sections[@]}"; do
+      local _content=""
+      _content="$(_daily_extract_section "${_previous_file}" "${_section}")"
+
+      if [[ -n "${_content}" ]]; then
+        printf "%s\\n\\n" "${_content}" >> "${_daily_file}"
+      else
+        _daily_default_section "${_section}" >> "${_daily_file}"
+      fi
+    done
+
+    # Insert LOG section (always fresh, before タスク整理)
+    # Actually, let's reorganize: we need LOG and 所感 in specific positions
+    # Rewrite the file with correct order
+
+    local _temp_file="${_daily_file}.tmp"
+
+    # Header
+    cat > "${_temp_file}" <<EOF
+---
+title: "${_target_date}"
+tags: [daily]
+created: $(date +%Y-%m-%dT%H:%M:%S)
+---
+
+EOF
+
+    # Home
+    local _content=""
+    _content="$(_daily_extract_section "${_previous_file}" "Home")"
+    if [[ -n "${_content}" ]]; then
+      printf "%s\\n\\n" "${_content}" >> "${_temp_file}"
+    else
+      _daily_default_section "Home" >> "${_temp_file}"
+    fi
+
+    # 直近の予定締め切り
+    _content="$(_daily_extract_section "${_previous_file}" "直近の予定締め切り")"
+    if [[ -n "${_content}" ]]; then
+      printf "%s\\n\\n" "${_content}" >> "${_temp_file}"
+    else
+      _daily_default_section "直近の予定締め切り" >> "${_temp_file}"
+    fi
+
+    # TASK
+    _content="$(_daily_extract_section "${_previous_file}" "TASK")"
+    if [[ -n "${_content}" ]]; then
+      printf "%s\\n\\n" "${_content}" >> "${_temp_file}"
+    else
+      _daily_default_section "TASK" >> "${_temp_file}"
+    fi
+
+    # LOG (always fresh)
+    _daily_default_section "LOG" >> "${_temp_file}"
+
+    # タスク整理
+    _content="$(_daily_extract_section "${_previous_file}" "タスク整理")"
+    if [[ -n "${_content}" ]]; then
+      printf "%s\\n\\n" "${_content}" >> "${_temp_file}"
+    else
+      _daily_default_section "タスク整理" >> "${_temp_file}"
+    fi
+
+    # Agile
+    _content="$(_daily_extract_section "${_previous_file}" "Agile")"
+    if [[ -n "${_content}" ]]; then
+      printf "%s\\n\\n" "${_content}" >> "${_temp_file}"
+    else
+      _daily_default_section "Agile" >> "${_temp_file}"
+    fi
+
+    # 所感 (always fresh)
+    _daily_default_section "所感" >> "${_temp_file}"
+
+    # inbox
+    _content="$(_daily_extract_section "${_previous_file}" "inbox")"
+    if [[ -n "${_content}" ]]; then
+      printf "%s\\n\\n" "${_content}" >> "${_temp_file}"
+    else
+      _daily_default_section "inbox" >> "${_temp_file}"
+    fi
+
+    mv "${_temp_file}" "${_daily_file}"
+
+    # Git checkpoint
+    if [[ -n "$(_git status --porcelain 2>/dev/null)" ]]; then
+      _git checkpoint "[nb] Daily note: ${_target_date}"
+    fi
+
+    printf "Created: %s\\n" "${_daily_file}"
+  else
+    printf "Opening existing daily note for %s...\\n" "${_target_date}"
+  fi
+
+  # Open in editor
+  if [[ "${_no_edit}" -eq 0 ]]; then
+    nvim "${_daily_file}"
+  fi
+}
