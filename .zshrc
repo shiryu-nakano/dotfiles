@@ -1,13 +1,3 @@
-# pyenv and vierutalenvY
-if which pyenv > /dev/null; then eval "$(pyenv init -)"; fi
-if which pyenv > /dev/null; then eval "$(pyenv virtualenv-init -)"; fi
-
-export DOTNET_ROOT="/opt/homebrew/opt/dotnet@8/libexec"
-export DOTNET_ROOT="/opt/homebrew/opt/dotnet@8/libexec"
-export PATH="/opt/homebrew/opt/dotnet@8/bin:$PATH"
-export PATH="/opt/homebrew/bin:$PATH"
-
-
 # プロンプトの色を設定
 autoload -U colors && colors
 PS1="%{$fg[green]%}%n@%m%{$reset_color%} %{$fg[cyan]%}%~%{$reset_color%} %# "
@@ -23,4 +13,21 @@ function ghq-fzf() {
 }
 zle -N ghq-fzf
 bindkey '^g' ghq-fzf
+
+function ros2-fzf() {
+  local src=$(find ~/ros2_ws/src -maxdepth 1 -mindepth 1 -type d | fzf --preview "if ls {}/README.* 1>/dev/null 2>&1; then bat --color=always --style=header,grid --line-range :80 {}/README.*; else echo 'No README found'; ls {}; fi")
+  if [ -n "$src" ]; then
+    BUFFER="cd $src"
+    zle accept-line
+  fi
+  zle -R -c
+}
+zle -N ros2-fzf
+bindkey '\es' ros2-fzf
+
 export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/go/bin:$PATH"
+
+# nvm
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"

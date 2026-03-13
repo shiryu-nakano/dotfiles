@@ -245,8 +245,8 @@ vim.keymap.set('n', '<S-Tab>', 'zA', { noremap = true, silent = true, desc = "To
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "markdown",
   callback = function()
-    -- treesitterハイライトを有効化
-    vim.treesitter.start()
+    -- treesitterハイライトを有効化（パーサーが無い場合はスキップ）
+    pcall(vim.treesitter.start)
     -- 折りたたみ設定
     vim.opt_local.foldmethod = "expr"
     vim.opt_local.foldexpr = "v:lua.MarkdownFoldExpr()"

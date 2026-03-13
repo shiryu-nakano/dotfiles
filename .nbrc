@@ -15,4 +15,4 @@
 
 export EDITOR="nvim" # Set by `nb` • Sun Feb 15 03:07:43 JST 2026
 
-export NB_DIR="${NB_DIR:-/Users/nkn4ryu/CABiNET/nb/}" # Set by `nb` • Sun Feb 15 03:32:32 JST 2026
+export NB_DIR="${NB_DIR:-/home/nkn4ryu/CABiNET/nb/}" # Set by `nb` • Sun Feb 15 03:32:32 JST 2026
