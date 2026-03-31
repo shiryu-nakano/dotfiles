@@ -4,6 +4,7 @@ vim.opt.relativenumber = true
 vim.opt.cursorline = true
 vim.opt.signcolumn = "yes"
 vim.opt.conceallevel = 2  -- リンクなどのMarkdown記法を隠す
+vim.opt.concealcursor = "nc"  -- Normal/Commandモードでもカーソル行をconceal
 vim.opt.clipboard = "unnamedplus"  -- システムクリップボードと連携
 
 -- 折りたたみ設定 (nvim-ufo用) --------
@@ -31,6 +32,17 @@ vim.opt.rtp:prepend(lazypath)
 
 
 require("lazy").setup({
+  -- カラースキーム (TokyoNight) --------
+  {
+    "folke/tokyonight.nvim",
+    lazy = false,
+    priority = 1000,
+    config = function()
+      vim.cmd([[colorscheme tokyonight]])
+      -- 太字の代わりに色で強調（CJKフォントのbold問題対策）
+      vim.api.nvim_set_hl(0, "@markup.strong", { fg = "#ff9e64", bold = false })
+    end,
+  },
   {
     "bullets-vim/bullets.vim",
     ft = { "markdown" },
@@ -75,11 +87,13 @@ require("lazy").setup({
       -- 不要な機能を無効化（警告を消す）
       html = { enabled = false },
       latex = { enabled = false },
+      yaml = { enabled = false },
     },
   },
   {
     "nvim-treesitter/nvim-treesitter",
     build = ":TSUpdate",
+    lazy = false,
   },
   -- LaTeX 統合 (vimtex) --------
   {
@@ -221,6 +235,50 @@ require("lazy").setup({
       end, { desc = "Peek fold or hover" })
     end,
   },
+  -- LaTeX数式グラフィカル表示 (mdmath.nvim) --------
+  {
+    "Thiago4532/mdmath.nvim",
+    dependencies = {
+      "nvim-treesitter/nvim-treesitter",
+    },
+    ft = { "markdown" },
+    opts = {
+      foreground = "#c0caf5",  -- 明示的に色を指定（Tokyo Night風）
+    },
+  },
+  -- 画像貼り付け (img-clip.nvim) --------
+  {
+    "HakonHarnes/img-clip.nvim",
+    ft = { "markdown" },
+    keys = {
+      { "<leader>p", "<cmd>PasteImage<cr>", desc = "Paste image from clipboard" },
+    },
+    opts = {
+      default = {
+        dir_path = "assets",  -- 画像保存先ディレクトリ
+      },
+    },
+  },
+  -- インライン画像表示 (image.nvim) --------
+  {
+    "3rd/image.nvim",
+    ft = { "markdown" },
+    opts = {
+      backend = "kitty",       -- Ghostty も Kitty protocol 対応
+      processor = "magick_cli", -- luarocks不要、ImageMagick CLI使用
+      integrations = {
+        markdown = {
+          enabled = true,
+          clear_in_insert_mode = false,
+          download_remote_images = true,
+          only_render_image_at_cursor = false,
+        },
+      },
+      max_width = 100,
+      max_height = 12,
+      max_height_window_percentage = 40,
+    },
+  },
 })
 
 
@@ -228,8 +286,73 @@ require("lazy").setup({
 vim.keymap.set('i', 'jj', '<Esc>', { noremap = true, silent = true })
 
 -- Insertモードでのインデント --------
-vim.keymap.set('i', '<Tab>', '<C-T>', { noremap = true, silent = true, desc = "Indent" })
+-- 見出し行では折りたたみトグル、それ以外ではインデント
+vim.keymap.set('i', '<Tab>', function()
+  local line = vim.fn.getline('.')
+  if line:match('^#+ ') then
+    -- 見出し行: Normalモードに戻って折りたたみトグル
+    vim.cmd('stopinsert')
+    vim.cmd('normal! za')
+  else
+    -- 通常行: インデント
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-T>', true, false, true), 'n', false)
+  end
+end, { noremap = true, silent = true, desc = "Indent or toggle fold on heading" })
 vim.keymap.set('i', '<S-Tab>', '<C-D>', { noremap = true, silent = true, desc = "Outdent" })
+
+-- リスト行の途中で改行したとき、残りを新しいリスト項目にする --------
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "markdown",
+  callback = function()
+    vim.keymap.set('i', '<CR>', function()
+      local line = vim.fn.getline('.')
+      local col = vim.fn.col('.')
+
+      -- リストパターン: -, *, +, 数字., - [ ], - [x] など
+      local indent, marker = line:match('^(%s*)([-*+] %[.%] )')
+      if not marker then
+        indent, marker = line:match('^(%s*)([-*+] )')
+      end
+      if not marker then
+        indent, marker = line:match('^(%s*)(%d+%. )')
+      end
+
+      if marker then
+        local marker_end = #indent + #marker
+        local text_after_marker = line:sub(marker_end + 1)
+
+        -- 空のリスト項目（マーカーのみ）の場合 → マーカーを削除して空行に
+        if text_after_marker:match('^%s*$') then
+          vim.fn.setline('.', '')
+          vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<CR>', true, false, true), 'n', false)
+        -- リスト途中で改行 → 新しいリスト項目を作成
+        elseif col > marker_end then
+          local after_cursor = line:sub(col)
+          local before_cursor = line:sub(1, col - 1)
+          vim.fn.setline('.', before_cursor)
+
+          -- チェックボックスの場合は未チェック状態で新規作成
+          local new_marker = marker:gsub('%[x%]', '[ ]'):gsub('%[X%]', '[ ]')
+          -- 番号付きリストの場合は次の番号に
+          local num = marker:match('^(%d+)')
+          if num then
+            new_marker = tostring(tonumber(num) + 1) .. '. '
+          end
+
+          local new_line = indent .. new_marker .. after_cursor
+          vim.fn.append('.', new_line)
+          vim.fn.cursor(vim.fn.line('.') + 1, #indent + #new_marker + 1)
+        else
+          -- マーカー内での改行は通常の改行
+          vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<CR>', true, false, true), 'n', false)
+        end
+      else
+        -- 通常の改行
+        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<CR>', true, false, true), 'n', false)
+      end
+    end, { buffer = true, noremap = true, silent = true, desc = "Smart list line break" })
+  end,
+})
 
 -- 折りたたみキーマップ --------
 -- Visualモードで Tab: 選択範囲を折りたたむ
