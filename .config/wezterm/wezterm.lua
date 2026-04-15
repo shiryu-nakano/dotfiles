@@ -7,9 +7,13 @@ local config = wezterm.config_builder()
 -- 自動リロード
 config.automatically_reload_config = true
 
--- フォント
-config.font = wezterm.font("Hack Nerd Font")
+-- フォント（日本語フォールバック付き）
+config.font = wezterm.font_with_fallback({
+  'JetBrainsMono Nerd Font',
+  'Noto Sans CJK JP',
+})
 config.font_size = 12.0
+config.warn_about_missing_glyphs = false
 
 -- IMEで日本語入力を有効化
 config.use_ime = true
@@ -22,8 +26,12 @@ if wezterm.target_triple:find("darwin") then
   config.macos_window_background_blur = 2
 end
 
--- タイトルバーを削除
-config.window_decorations = "RESIZE"
+-- タイトルバー設定（macOSではタイトルバーなし、Linuxではあり）
+if wezterm.target_triple:find("linux") then
+  config.window_decorations = "RESIZE"
+else
+  config.window_decorations = "RESIZE"
+end
 
 -- タブが1つしかない時はタブバーを非表示
 config.hide_tab_bar_if_only_one_tab = true
@@ -41,9 +49,6 @@ config.window_background_gradient = {
 
 -- タブバーの+ボタンを非表示
 config.show_new_tab_button_in_tab_bar = false
-
--- タブの閉じるボタンを非表示 (nightly版のみ)
-config.show_close_tab_button_in_tabs = false
 
 -- タブの設定
 config.colors = {
@@ -81,6 +86,12 @@ wezterm.on("format-tab-title", function(tab, tabs, panes, config, hover, max_wid
     { Text = SOLID_RIGHT_ARROW },
   }
 end)
+
+-- デフォルトシェル
+config.default_prog = { '/usr/bin/zsh' }
+
+-- スクロールバック
+config.scrollback_lines = 10000
 
 -- leaderキーの設定 (Ctrl+\)
 config.leader = { key = "\\", mods = "CTRL", timeout_milliseconds = 2000 }

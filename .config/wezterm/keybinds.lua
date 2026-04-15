@@ -4,41 +4,53 @@ local act = wezterm.action
 return {
   keys = {
     -- タブ操作
-    { key = 't', mods = 'LEADER', action = act.SpawnTab 'CurrentPaneDomain' },
-    { key = 'w', mods = 'LEADER', action = act.CloseCurrentTab{ confirm = true } },
-    
+    { key = 't', mods = 'CTRL', action = act.SpawnTab 'CurrentPaneDomain' },
+    { key = 'w', mods = 'CTRL', action = act.CloseCurrentPane{ confirm = true } },
+
     -- タブ移動
-    { key = '[', mods = 'LEADER', action = act.ActivateTabRelative(-1) },
-    { key = ']', mods = 'LEADER', action = act.ActivateTabRelative(1) },
-    
+    { key = '{', mods = 'CTRL|SHIFT', action = act.ActivateTabRelative(-1) },
+    { key = '}', mods = 'CTRL|SHIFT', action = act.ActivateTabRelative(1) },
+
+    -- タブ番号移動
+    { key = '1', mods = 'CTRL', action = act.ActivateTab(0) },
+    { key = '2', mods = 'CTRL', action = act.ActivateTab(1) },
+    { key = '3', mods = 'CTRL', action = act.ActivateTab(2) },
+    { key = '4', mods = 'CTRL', action = act.ActivateTab(3) },
+    { key = '5', mods = 'CTRL', action = act.ActivateTab(4) },
+    { key = '6', mods = 'CTRL', action = act.ActivateTab(5) },
+    { key = '7', mods = 'CTRL', action = act.ActivateTab(6) },
+    { key = '8', mods = 'CTRL', action = act.ActivateTab(7) },
+    { key = '9', mods = 'CTRL', action = act.ActivateTab(8) },
+
     -- ペイン分割
-    { key = '|', mods = 'LEADER|SHIFT', action = act.SplitHorizontal{ domain = 'CurrentPaneDomain' } },
-    { key = '-', mods = 'LEADER', action = act.SplitVertical{ domain = 'CurrentPaneDomain' } },
-    
+    { key = 'd', mods = 'CTRL', action = act.SplitHorizontal{ domain = 'CurrentPaneDomain' } },
+    { key = 'D', mods = 'CTRL|SHIFT', action = act.SplitVertical{ domain = 'CurrentPaneDomain' } },
+
     -- ペイン移動
-    { key = 'h', mods = 'LEADER', action = act.ActivatePaneDirection 'Left' },
-    { key = 'j', mods = 'LEADER', action = act.ActivatePaneDirection 'Down' },
-    { key = 'k', mods = 'LEADER', action = act.ActivatePaneDirection 'Up' },
-    { key = 'l', mods = 'LEADER', action = act.ActivatePaneDirection 'Right' },
-    
-    -- ペインサイズ調整モード
-    { key = 'r', mods = 'LEADER', action = act.ActivateKeyTable{ name = 'resize_pane', one_shot = false } },
-    
-    -- コピーモード
-    { key = '[', mods = 'LEADER', action = act.ActivateCopyMode },
-    -- ペイン番号を表示して選択
-    { key = 'q', mods = 'LEADER', action = act.PaneSelect },
-    -- または、ペイン番号を表示してスワップ（入れ替え）
-    { key = 'Q', mods = 'LEADER|SHIFT', action = act.PaneSelect{ mode = 'SwapWithActive' } },
- },
-  
-  key_tables = {
-    resize_pane = {
-      { key = 'h', action = act.AdjustPaneSize{ 'Left', 1 } },
-      { key = 'j', action = act.AdjustPaneSize{ 'Down', 1 } },
-      { key = 'k', action = act.AdjustPaneSize{ 'Up', 1 } },
-      { key = 'l', action = act.AdjustPaneSize{ 'Right', 1 } },
-      { key = 'Escape', action = 'PopKeyTable' },
-    },
+    { key = 'LeftArrow', mods = 'CTRL|ALT', action = act.ActivatePaneDirection 'Left' },
+    { key = 'RightArrow', mods = 'CTRL|ALT', action = act.ActivatePaneDirection 'Right' },
+    { key = 'UpArrow', mods = 'CTRL|ALT', action = act.ActivatePaneDirection 'Up' },
+    { key = 'DownArrow', mods = 'CTRL|ALT', action = act.ActivatePaneDirection 'Down' },
+
+    -- ペインサイズ調整
+    { key = 'LeftArrow', mods = 'CTRL|SHIFT', action = act.AdjustPaneSize{ 'Left', 20 } },
+    { key = 'RightArrow', mods = 'CTRL|SHIFT', action = act.AdjustPaneSize{ 'Right', 20 } },
+    { key = 'UpArrow', mods = 'CTRL|SHIFT', action = act.AdjustPaneSize{ 'Up', 20 } },
+    { key = 'DownArrow', mods = 'CTRL|SHIFT', action = act.AdjustPaneSize{ 'Down', 20 } },
+
+    -- コピー・ペースト
+    { key = 'c', mods = 'CTRL', action = act.CopyTo 'Clipboard' },
+    { key = 'V', mods = 'CTRL|SHIFT', action = act.PasteFrom 'Clipboard' },
+    { key = 'C', mods = 'CTRL|SHIFT', action = act.SendString '\x03' },
+
+    -- フォントサイズ
+    { key = '=', mods = 'CTRL', action = act.IncreaseFontSize },
+    { key = '-', mods = 'CTRL', action = act.DecreaseFontSize },
+    { key = '0', mods = 'CTRL', action = act.ResetFontSize },
+
+    -- 画面クリア
+    { key = 'k', mods = 'CTRL', action = act.ClearScrollback 'ScrollbackAndViewport' },
   },
+
+  key_tables = {},
 }
