@@ -3,8 +3,6 @@ vim.opt.number = true
 vim.opt.relativenumber = true
 vim.opt.cursorline = true
 vim.opt.signcolumn = "yes"
-vim.opt.conceallevel = 2  -- リンクなどのMarkdown記法を隠す
-vim.opt.concealcursor = "nc"  -- Normal/Commandモードでもカーソル行をconceal
 vim.opt.clipboard = "unnamedplus"  -- システムクリップボードと連携
 
 -- 折りたたみ設定 (nvim-ufo用) --------
@@ -58,6 +56,8 @@ require("lazy").setup({
       { "<Space>sm", ":RenderMarkdown toggle<CR>", desc = "Toggle Markdown rendering" },
     },
     opts = {
+      -- markdownファイルタイプのみで有効化
+      file_types = { "markdown" },
       -- カーソル行以外は常にレンダリング
       render_modes = true,
       -- 見出し: アイコン非表示、背景幅を文字に合わせる
@@ -235,7 +235,7 @@ require("lazy").setup({
       end, { desc = "Peek fold or hover" })
     end,
   },
-  -- LaTeX数式グラフィカル表示 (mdmath.nvim) --------
+  -- Markdown内のLaTeX数式グラフィカル表示 (mdmath.nvim) --------
   {
     "Thiago4532/mdmath.nvim",
     dependencies = {
@@ -244,6 +244,7 @@ require("lazy").setup({
     ft = { "markdown" },
     opts = {
       foreground = "#c0caf5",  -- 明示的に色を指定（Tokyo Night風）
+      filetypes = { "markdown" },  -- markdownのみで有効化
     },
   },
   -- 画像貼り付け (img-clip.nvim) --------
@@ -373,6 +374,18 @@ vim.api.nvim_create_autocmd("FileType", {
     -- 折りたたみ設定
     vim.opt_local.foldmethod = "expr"
     vim.opt_local.foldexpr = "v:lua.MarkdownFoldExpr()"
+    -- Markdownでのみconceal機能を有効化（数式レンダリング用）
+    vim.opt_local.conceallevel = 2
+    vim.opt_local.concealcursor = "nc"
+  end,
+})
+
+-- LaTeX用の設定 --------
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = { "tex", "latex" },
+  callback = function()
+    -- LaTeXではconcealを無効化（ソースコードをそのまま表示）
+    vim.opt_local.conceallevel = 0
   end,
 })
 
