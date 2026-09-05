@@ -31,3 +31,48 @@ export PATH="$HOME/go/bin:$PATH"
 # nvm
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+
+# VPN接続用のショートカットコマンド
+alias 1284="$HOME/ghq/github.com/shiryu-nakano/dotfiles/src/vpn_connect.sh"
+
+
+
+# pyenv and vierutalenvY
+if which pyenv > /dev/null; then eval "$(pyenv init -)"; fi
+if which pyenv > /dev/null; then eval "$(pyenv virtualenv-init -)"; fi
+
+export DOTNET_ROOT="/opt/homebrew/opt/dotnet@8/libexec"
+export PATH="/opt/homebrew/opt/dotnet@8/bin:$PATH"
+export PATH="/opt/homebrew/bin:$PATH"
+
+
+eval "$(rbenv init - zsh)"
+
+
+# 一橋大学VPN OTP取得 (単独呼び出し用)
+vpn_otp_watch() {
+  # 読み込み先をcredentialディレクトリに変更
+  source ~/ghq/github.com/shiryu-nakano/dotfiles/credential/vpn_env
+  
+  local secret="$VPN_SECRET"
+  local start=$(date +%s)
+  local timeout=60  # 1分で自動終了
+
+  while true; do
+    local now=$(date +%s)
+    local elapsed=$((now - start))
+    if (( elapsed >= timeout )); then
+      printf "\n1分経過したため自動終了しました\n"
+      break
+    fi
+
+    local remaining=$((30 - now % 30))
+    local code=$(oathtool --totp -b "$secret")
+    echo "$code" | pbcopy
+    printf "\rOTP: %s (自動コピー済) | 残り: %2d秒 | 終了まで: %3d秒 " "$code" "$remaining" "$((timeout - elapsed))"
+
+    sleep 1
+  done
+}
+alias vpnotp='vpn_otp_watch'

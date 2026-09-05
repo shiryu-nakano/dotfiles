@@ -108,3 +108,6 @@ scrollback-limit = 10000
 # ベル音無効
 shell-integration-features = no-cursor,no-title
 command = /bin/zsh
+
+# color 
+term = xterm-256color
